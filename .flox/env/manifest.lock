@@ -1,0 +1,124 @@
+{
+  "lockfile-version": 0,
+  "manifest": {
+    "hook": {},
+    "install": {
+      "cargo": {
+        "pkg-path": "cargo"
+      },
+      "rustc": {
+        "pkg-path": "rustc"
+      }
+    },
+    "options": {
+      "systems": [
+        "aarch64-darwin"
+      ]
+    },
+    "registry": {
+      "defaults": {
+        "subtrees": null
+      },
+      "inputs": {
+        "nixpkgs": {
+          "from": {
+            "owner": "NixOS",
+            "ref": "release-23.11",
+            "repo": "nixpkgs",
+            "type": "github"
+          },
+          "subtrees": [
+            "legacyPackages"
+          ]
+        }
+      },
+      "priority": [
+        "nixpkgs"
+      ]
+    },
+    "vars": {}
+  },
+  "packages": {
+    "aarch64-darwin": {
+      "cargo": {
+        "attr-path": [
+          "legacyPackages",
+          "aarch64-darwin",
+          "cargo"
+        ],
+        "info": {
+          "broken": false,
+          "description": "Downloads your Rust project's dependencies and builds your project",
+          "license": null,
+          "pname": "cargo",
+          "unfree": false,
+          "version": "1.73.0"
+        },
+        "input": {
+          "attrs": {
+            "lastModified": 1710420202,
+            "narHash": "sha256-MvFKESbq4rUWuaf2RKPNYENaSZEw/jaCLo2gU6oREcM=",
+            "owner": "NixOS",
+            "repo": "nixpkgs",
+            "rev": "878ef7d9721bee9f81f8a80819f9211ad1f993da",
+            "type": "github"
+          },
+          "fingerprint": "ae15675957498b6c9a75fc934227c81b0f22ee0d2cb4382cedeadb64cff0cbf0",
+          "url": "github:NixOS/nixpkgs/878ef7d9721bee9f81f8a80819f9211ad1f993da"
+        },
+        "priority": 5
+      },
+      "rustc": {
+        "attr-path": [
+          "legacyPackages",
+          "aarch64-darwin",
+          "rustc"
+        ],
+        "info": {
+          "broken": false,
+          "description": "A safe, concurrent, practical language",
+          "license": null,
+          "pname": "rustc",
+          "unfree": false,
+          "version": "1.73.0"
+        },
+        "input": {
+          "attrs": {
+            "lastModified": 1710420202,
+            "narHash": "sha256-MvFKESbq4rUWuaf2RKPNYENaSZEw/jaCLo2gU6oREcM=",
+            "owner": "NixOS",
+            "repo": "nixpkgs",
+            "rev": "878ef7d9721bee9f81f8a80819f9211ad1f993da",
+            "type": "github"
+          },
+          "fingerprint": "ae15675957498b6c9a75fc934227c81b0f22ee0d2cb4382cedeadb64cff0cbf0",
+          "url": "github:NixOS/nixpkgs/878ef7d9721bee9f81f8a80819f9211ad1f993da"
+        },
+        "priority": 5
+      }
+    }
+  },
+  "registry": {
+    "defaults": {
+      "subtrees": null
+    },
+    "inputs": {
+      "nixpkgs": {
+        "from": {
+          "lastModified": 1710420202,
+          "narHash": "sha256-MvFKESbq4rUWuaf2RKPNYENaSZEw/jaCLo2gU6oREcM=",
+          "owner": "NixOS",
+          "repo": "nixpkgs",
+          "rev": "878ef7d9721bee9f81f8a80819f9211ad1f993da",
+          "type": "github"
+        },
+        "subtrees": [
+          "legacyPackages"
+        ]
+      }
+    },
+    "priority": [
+      "nixpkgs"
+    ]
+  }
+}

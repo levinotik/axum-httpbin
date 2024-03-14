@@ -55,6 +55,26 @@ Response:
         "url": "/post"
 }
 ```
+
+## Running with Flox
+
+If you'd prefer not to have `rustc` or `cargo` installed on your system, you can
+leverage Flox to run this server.
+
+[Flox](https://flox.dev/docs/) is a virtual environment and package manager. To
+use it, [install Flox](https://flox.dev/docs/install-flox/). Then, from the root
+of this project, run:
+
+```shell
+$ flox activate 
+```
+
+This will activate a virtual environment in which `rustc` and `cargo` are installed.
+Once activated, you can run the server with:
+
+```shell
+$ cargo run
+```
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

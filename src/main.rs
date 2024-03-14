@@ -1,38 +1,89 @@
-use std::collections::HashMap;
-
 use axum::{
-    extract::{ConnectInfo, Extension, Host, Multipart, OriginalUri, Query, RawForm, Request},
-    http::{HeaderMap, HeaderName, HeaderValue, Method},
-    routing::{delete, get, head, post, put, patch},
-    Form,
-    Json,
-    Router,
+    async_trait,
+    extract::{ConnectInfo, FromRequestParts, Multipart, OriginalUri, Query},
+    http::{request::Parts, HeaderMap, HeaderName, HeaderValue, Method},
+    response::{IntoResponse, Response},
+    routing::{delete, get, patch, post, put},
+    Form, Json, Router,
 };
-use serde::ser::{SerializeMap, SerializeSeq, Serializer};
-use serde::{Deserialize, Serialize};
+use axum_macros::debug_handler;
+use serde::ser::{SerializeMap, Serializer};
+use serde::Serialize;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::net::SocketAddr;
 
-#[derive(Serialize)]
-struct CommonRequestComponents {
-    method: String,
-    /// The URL parameters
-    args: HashMap<String, String>,
-    headers: MyHeaderMap,
-    url: String,
-    origin: String,
+#[async_trait]
+impl<S> FromRequestParts<S> for CommonRequestParts
+where
+    S: Send + Sync,
+{
+    type Rejection = Response;
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let method = Method::from_request_parts(parts, state)
+            .await
+            .map_err(|err| err.into_response())?;
+        let args: Query<HashMap<String, String>> = Query::from_request_parts(parts, state)
+            .await
+            .map_err(|err| err.into_response())?;
+
+        let headers = HeaderMap::from_request_parts(parts, state)
+            .await
+            .map_err(|err| err.into_response())?;
+
+        let url = OriginalUri::from_request_parts(parts, state)
+            .await
+            .map_err(|err| err.into_response())?;
+
+        let origin: ConnectInfo<SocketAddr> = ConnectInfo::from_request_parts(parts, state)
+            .await
+            .map_err(|err| err.into_response())?;
+
+        Ok(CommonRequestParts::new(
+            origin.0,
+            url,
+            method,
+            headers,
+            Some(args),
+        ))
+    }
+}
+
+impl CommonRequestParts {
+    fn new(
+        addr: SocketAddr,
+        url: OriginalUri,
+        method: Method,
+        headers: HeaderMap,
+        params: Option<Query<HashMap<String, String>>>,
+    ) -> Self {
+        let Query(params) = params.unwrap_or_default();
+        Self {
+            headers: MyHeaderMap(headers.clone()),
+            args: params,
+            method: method.to_string(),
+            url: url.to_string(),
+            origin: addr.ip().to_string(),
+        }
+    }
 }
 
 #[derive(Serialize)]
-struct FormResponse {
-    commonRequestComponents: CommonRequestComponents,
+struct PostFormResponse {
+    common_request_parts: CommonRequestParts,
     form: HashMap<String, String>,
 }
 #[derive(Serialize)]
-struct PostResponse {
-    commonRequestComponents: CommonRequestComponents,
+struct PostJsonResponse {
+    common_request_parts: CommonRequestParts,
     json: Option<Value>,
     data: String,
+}
+
+#[derive(Serialize)]
+struct PostFileResponse {
+    common_request_parts: CommonRequestParts,
+    files: HashMap<String, String>,
 }
 
 #[tokio::main]
@@ -44,7 +95,8 @@ async fn main() {
         .route("/put", put(basic_method_handler))
         .route("/patch", patch(basic_method_handler))
         .route("/post/json", post(post_json_handler))
-        .route("/post/form", post(form_handler));
+        .route("/post/form", post(form_handler))
+        .route("/post/file", post(post_file_handler));
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(
         listener,
@@ -55,43 +107,20 @@ async fn main() {
 }
 
 async fn basic_method_handler(
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    url: OriginalUri,
-    method: Method,
-    headers: HeaderMap,
-    params: Option<Query<HashMap<String, String>>>,
-) -> Json<CommonRequestComponents> {
-    let Query(params) = params.unwrap_or_default();
-    let res = CommonRequestComponents {
-        headers: MyHeaderMap(headers.clone()),
-        args: params,
-        method: method.to_string(),
-        url: url.to_string(),
-        origin: addr.ip().to_string(),
-    };
-
-    Json(res)
+    common_request_parts: CommonRequestParts,
+) -> Json<CommonRequestParts> {
+    Json(common_request_parts)
 }
 
+#[debug_handler]
 async fn form_handler(
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    url: OriginalUri,
-    method: Method,
-    headers: HeaderMap,
-    params: Option<Query<HashMap<String, String>>>,
+    common_request_parts: CommonRequestParts,
     form: Form<HashMap<String, String>>,
-) -> Json<FormResponse> {
-    let Query(params) = params.unwrap_or_default();
+) -> Json<PostFormResponse> {
     let Form(form) = form;
-    Json(FormResponse {
-        commonRequestComponents: CommonRequestComponents {
-            headers: MyHeaderMap(headers.clone()),
-            args: params,
-            method: method.to_string(),
-            url: url.to_string(),
-            origin: addr.ip().to_string(),
-        },
-        form
+    Json(PostFormResponse {
+        common_request_parts,
+        form,
     })
 }
 
@@ -104,39 +133,47 @@ async fn post_json_handler(
     headers: HeaderMap,
     params: Option<Query<HashMap<String, String>>>,
     json: Option<Json<Value>>,
-) -> Json<PostResponse> {
-    let Query(params) = params.unwrap_or_default();
+) -> Json<PostJsonResponse> {
     let data = json
         .as_ref()
         .map(|Json(val)| val.to_string())
         .unwrap_or_default();
-    Json(PostResponse {
-        commonRequestComponents: CommonRequestComponents {
-            headers: MyHeaderMap(headers.clone()),
-            args: params,
-            method: method.to_string(),
-            url: url.to_string(),
-            origin: addr.ip().to_string(),
-        },
+    Json(PostJsonResponse {
+        common_request_parts: CommonRequestParts::new(addr, url, method, headers, params),
         json: json.map(|Json(val)| val),
         data,
     })
 }
 
-async fn file_handler(url: OriginalUri, mut multipart: Multipart) {
+#[debug_handler]
+async fn post_file_handler(
+    common_request_parts: CommonRequestParts,
+    mut multipart: Multipart,
+) -> Json<PostFileResponse> {
+    let mut data_map = HashMap::new();
     while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
-        let file_name = field.file_name().unwrap().to_string();
-        let content_type = field.content_type().unwrap().to_string();
         let data = field.bytes().await.unwrap();
-
-        println!(
-            "Length of `{name}` (`{file_name}`: `{content_type}`) is {} bytes",
-            data.len()
+        data_map.insert(
+            name.clone(),
+            String::from_utf8(data.clone().to_vec()).unwrap(),
         );
     }
+    Json(PostFileResponse {
+        common_request_parts,
+        files: data_map,
+    })
 }
 
+#[derive(Serialize)]
+struct CommonRequestParts {
+    method: String,
+    /// The URL parameters
+    args: HashMap<String, String>,
+    headers: MyHeaderMap,
+    url: String,
+    origin: String,
+}
 /// Simple tuple structs to wrap Axum's `HeaderMap` and `HeaderValue` so we
 /// can implement `Serialize` for them, which we need because a set of endpoints
 /// echo back the headers from the request

@@ -27,7 +27,7 @@ So far, Axum HttpBin implements the following HTTP endpoints:
 | DELETE  | `/delete`           | Returns the request data as JSON.      |:white_check_mark:|
 | POST    | `/post/json`        | Returns the JSON data from the request.|:white_check_mark:|
 | POST    | `/post/form`        | Returns the form data from the request.|:white_check_mark:|
-| POST    | `/post/file`        | Returns the file data from the request.|:construction:    |
+| POST    | `/post/file`        | Returns the file data from the request.|:white_check_mark:|
 
 ## Endpoints
 

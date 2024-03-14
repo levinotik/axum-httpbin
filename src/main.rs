@@ -13,6 +13,14 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 
+macro_rules! extract_from_request {
+    ($parts:expr, $state:expr, $extractor:ident) => {
+        $extractor::from_request_parts($parts, $state)
+            .await
+            .map_err(|err| err.into_response())?
+    };
+}
+
 #[async_trait]
 impl<S> FromRequestParts<S> for CommonRequestParts
 where
@@ -20,25 +28,11 @@ where
 {
     type Rejection = Response;
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let method = Method::from_request_parts(parts, state)
-            .await
-            .map_err(|err| err.into_response())?;
-        let args: Query<HashMap<String, String>> = Query::from_request_parts(parts, state)
-            .await
-            .map_err(|err| err.into_response())?;
-
-        let headers = HeaderMap::from_request_parts(parts, state)
-            .await
-            .map_err(|err| err.into_response())?;
-
-        let url = OriginalUri::from_request_parts(parts, state)
-            .await
-            .map_err(|err| err.into_response())?;
-
-        let origin: ConnectInfo<SocketAddr> = ConnectInfo::from_request_parts(parts, state)
-            .await
-            .map_err(|err| err.into_response())?;
-
+        let method = extract_from_request!(parts, state, Method);
+        let args: Query<HashMap<String, String>> = extract_from_request!(parts, state, Query);
+        let headers = extract_from_request!(parts, state, HeaderMap);
+        let url = extract_from_request!(parts, state, OriginalUri);
+        let origin: ConnectInfo<SocketAddr> = extract_from_request!(parts, state, ConnectInfo);
         Ok(CommonRequestParts::new(
             origin.0,
             url,

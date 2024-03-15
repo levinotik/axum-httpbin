@@ -1,11 +1,12 @@
 use axum::{
     async_trait,
     extract::{ConnectInfo, FromRequestParts, Multipart, OriginalUri, Query},
-    http::{request::Parts, HeaderMap, HeaderName, HeaderValue, Method},
+    http::{request::Parts, HeaderMap, HeaderName, HeaderValue, Method, StatusCode},
     response::{IntoResponse, Response},
     routing::{delete, get, patch, post, put},
     Form, Json, Router,
 };
+use axum_auth::AuthBasic;
 use axum_macros::debug_handler;
 use serde::ser::{SerializeMap, Serializer};
 use serde::Serialize;
@@ -63,6 +64,13 @@ impl CommonRequestParts {
 }
 
 #[derive(Serialize)]
+struct PostBasicAuthResponse {
+    common_request_parts: CommonRequestParts,
+    authenticated: bool,
+    user: String,
+}
+
+#[derive(Serialize)]
 struct PostFormResponse {
     common_request_parts: CommonRequestParts,
     form: HashMap<String, String>,
@@ -90,7 +98,9 @@ async fn main() {
         .route("/patch", patch(basic_method_handler))
         .route("/post/json", post(post_json_handler))
         .route("/post/form", post(form_handler))
-        .route("/post/file", post(post_file_handler));
+        .route("/post/file", post(post_file_handler))
+        .route("/basic-auth/user/passwd", get(get_basic_auth_handler));
+
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(
         listener,
@@ -106,7 +116,6 @@ async fn basic_method_handler(
     Json(common_request_parts)
 }
 
-#[debug_handler]
 async fn form_handler(
     common_request_parts: CommonRequestParts,
     form: Form<HashMap<String, String>>,
@@ -139,7 +148,6 @@ async fn post_json_handler(
     })
 }
 
-#[debug_handler]
 async fn post_file_handler(
     common_request_parts: CommonRequestParts,
     mut multipart: Multipart,
@@ -157,6 +165,32 @@ async fn post_file_handler(
         common_request_parts,
         files: data_map,
     })
+}
+
+async fn get_basic_auth_handler(
+    common_request_parts: CommonRequestParts,
+    AuthBasic((id, password)): AuthBasic,
+) -> Result<Json<PostBasicAuthResponse>, (HeaderMap, StatusCode)> {
+    let response: Result<Json<PostBasicAuthResponse>, (HeaderMap, StatusCode)> = if let Some(password) = password {
+        if password == "passwd" {
+            Ok(Json(PostBasicAuthResponse {
+                common_request_parts,
+                user: id,
+                authenticated: true,
+            }))
+        } else {
+            
+            let mut headers = HeaderMap::new();
+            headers.insert("WWW-Authenticate", "Basic realm=\"Fake Realm\"".parse().unwrap());
+            Err((headers, StatusCode::UNAUTHORIZED))
+        }
+    } else {
+            let mut headers = HeaderMap::new();
+            headers.insert("WWW-Authenticate", "Basic realm=\"Fake Realm\"".parse().unwrap());
+            Err((headers, StatusCode::UNAUTHORIZED))
+    };
+
+    response
 }
 
 #[derive(Serialize)]

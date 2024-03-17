@@ -130,11 +130,7 @@ async fn form_handler(
 /// Would be nice to be able to separately echo body and json, but this isn't possible
 /// since the request body can only be consumed once
 async fn post_json_handler(
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    url: OriginalUri,
-    method: Method,
-    headers: HeaderMap,
-    params: Option<Query<HashMap<String, String>>>,
+    common_request_parts: CommonRequestParts,
     json: Option<Json<Value>>,
 ) -> Json<PostJsonResponse> {
     let data = json
@@ -142,7 +138,7 @@ async fn post_json_handler(
         .map(|Json(val)| val.to_string())
         .unwrap_or_default();
     Json(PostJsonResponse {
-        common_request_parts: CommonRequestParts::new(addr, url, method, headers, params),
+        common_request_parts,
         json: json.map(|Json(val)| val),
         data,
     })

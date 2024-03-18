@@ -29,6 +29,7 @@ So far, Axum HttpBin implements the following HTTP endpoints:
 | POST    | `/post/form`        | Returns the form data from the request.|:white_check_mark:|
 | POST    | `/post/file`        | Returns the file data from the request.|:white_check_mark:|
 | GET     | `/basic-auth/user/passwd`        |Performs authorization using 'Basic' HTTP Authentication |:white_check_mark:|
+| GET     | `/bearer`        |Performs authorization using 'Bearer' HTTP Authentication |:white_check_mark:|
 
 ## Endpoints
 

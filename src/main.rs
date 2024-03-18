@@ -6,7 +6,7 @@ use axum::{
     routing::{delete, get, patch, post, put},
     Form, Json, Router,
 };
-use axum_auth::AuthBasic;
+use axum_auth::{AuthBasic, AuthBearer};
 use axum_macros::debug_handler;
 use serde::ser::{SerializeMap, Serializer};
 use serde::Serialize;
@@ -64,10 +64,17 @@ impl CommonRequestParts {
 }
 
 #[derive(Serialize)]
-struct PostBasicAuthResponse {
+struct GetBasicAuthResponse {
     common_request_parts: CommonRequestParts,
     authenticated: bool,
     user: String,
+}
+
+#[derive(Serialize)]
+struct GetBearerAuthResponse {
+    common_request_parts: CommonRequestParts,
+    authenticated: bool,
+    token: String,
 }
 
 #[derive(Serialize)]
@@ -99,7 +106,8 @@ async fn main() {
         .route("/post/json", post(post_json_handler))
         .route("/post/form", post(form_handler))
         .route("/post/file", post(post_file_handler))
-        .route("/basic-auth/user/passwd", get(get_basic_auth_handler));
+        .route("/basic-auth/user/passwd", get(get_basic_auth_handler))
+        .route("/bearer", get(get_bearer_auth_handler));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(
@@ -166,27 +174,45 @@ async fn post_file_handler(
 async fn get_basic_auth_handler(
     common_request_parts: CommonRequestParts,
     AuthBasic((id, password)): AuthBasic,
-) -> Result<Json<PostBasicAuthResponse>, (HeaderMap, StatusCode)> {
-    let response: Result<Json<PostBasicAuthResponse>, (HeaderMap, StatusCode)> = if let Some(password) = password {
-        if password == "passwd" {
-            Ok(Json(PostBasicAuthResponse {
-                common_request_parts,
-                user: id,
-                authenticated: true,
-            }))
+) -> Result<Json<GetBasicAuthResponse>, (HeaderMap, StatusCode)> {
+    let response: Result<Json<GetBasicAuthResponse>, (HeaderMap, StatusCode)> =
+        if let Some(password) = password {
+            if password == "passwd" {
+                Ok(Json(GetBasicAuthResponse {
+                    common_request_parts,
+                    user: id,
+                    authenticated: true,
+                }))
+            } else {
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    "WWW-Authenticate",
+                    "Basic realm=\"Fake Realm\"".parse().unwrap(),
+                );
+                Err((headers, StatusCode::UNAUTHORIZED))
+            }
         } else {
-            
             let mut headers = HeaderMap::new();
-            headers.insert("WWW-Authenticate", "Basic realm=\"Fake Realm\"".parse().unwrap());
+            headers.insert(
+                "WWW-Authenticate",
+                "Basic realm=\"Fake Realm\"".parse().unwrap(),
+            );
             Err((headers, StatusCode::UNAUTHORIZED))
-        }
-    } else {
-            let mut headers = HeaderMap::new();
-            headers.insert("WWW-Authenticate", "Basic realm=\"Fake Realm\"".parse().unwrap());
-            Err((headers, StatusCode::UNAUTHORIZED))
-    };
+        };
 
     response
+}
+
+async fn get_bearer_auth_handler(
+    common_request_parts: CommonRequestParts,
+    AuthBearer(token): AuthBearer,
+) -> Json<GetBearerAuthResponse> {
+    println!("token is {token}");
+    Json(GetBearerAuthResponse {
+        common_request_parts,
+        token: token,
+        authenticated: true,
+    })
 }
 
 #[derive(Serialize)]
